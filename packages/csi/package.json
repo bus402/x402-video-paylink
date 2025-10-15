@@ -1,0 +1,22 @@
+{
+  "name": "@x402-video/csi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Client Signed Identifier (CSI) validation and parsing",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "ethers": "^6.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,6 +1,13 @@
 export const config = {
   port: process.env.PORT || 3000,
   baseUrl: process.env.BASE_URL || "http://localhost:3000",
+  merchantAddress:
+    process.env.MERCHANT_ADDRESS ||
+    "0x0000000000000000000000000000000000000000", // TODO: Set merchant address
+  network: (process.env.X402_NETWORK || "base-sepolia") as "base-sepolia",
+  streamPriceUSDC: process.env.STREAM_PRICE_USDC || "0.01",
+  jwtSecret: process.env.JWT_SECRET || "your-secret-key-change-in-production",
+  jwtTTL: parseInt(process.env.JWT_TTL_SECONDS || "900", 10), // 15 minutes default
 };
 
 // Private IP ranges to block (SSRF protection)

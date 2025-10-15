@@ -1,11 +1,43 @@
 import express, { type Application } from "express";
 import { createId } from "@paralleldrive/cuid2";
+import jwt from "jsonwebtoken";
 import { config, isUpstreamAllowed, detectStreamKind } from "./config";
 import type { Wrapped, WrapRequest, WrapResponse } from "./types";
 import { fetchUpstream, getManifestRewriter, getContentType } from "./utils";
+import { createJWTPaymentMiddleware } from "./middleware/jwt-payment.js";
 
 export const app: Application = express();
 const wrapped = new Map<string, Wrapped>();
+
+// Create JWT + x402 payment middleware for /stream routes
+const streamPaymentMiddleware = createJWTPaymentMiddleware({
+  merchantAddress: config.merchantAddress,
+  routes: {
+    "/stream/*": {
+      price: config.streamPriceUSDC,
+      network: config.network,
+      config: {
+        customPaywallHtml: `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redirecting to Video Paywall...</title>
+</head>
+<body>
+  <p>Redirecting to video paywall...</p>
+  <script>
+    // Redirect to Next.js site video paywall with stream URL
+    const streamUrl = window.location.pathname;
+    const siteUrl = 'http://localhost:3001/video?stream=' + encodeURIComponent(streamUrl);
+    window.location.href = siteUrl;
+  </script>
+</body>
+</html>`,
+      },
+    },
+  },
+});
 
 app.use(express.json());
 app.get("/health", (_req, res) => {
@@ -76,7 +108,7 @@ app.post("/wrap", (req, res) => {
 });
 
 // GET /stream/:id.:ext - Proxy main file (manifest or progressive stream)
-app.get("/stream/:id.:ext", async (req, res) => {
+app.get("/stream/:id.:ext", streamPaymentMiddleware, async (req, res) => {
   const { id, ext } = req.params;
   const stream = wrapped.get(id);
   if (!stream) {
@@ -199,6 +231,23 @@ app.get("/stream/:id/*", async (req, res) => {
   const stream = wrapped.get(id);
   if (!stream) {
     return res.status(404).json({ error: "Stream not found" });
+  }
+
+  // Check JWT for segments
+  const authHeader = req.header("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return res.status(401).json({
+      error: "Authorization header with Bearer token required for segments",
+    });
+  }
+
+  const token = authHeader.substring(7);
+  try {
+    jwt.verify(token, config.jwtSecret);
+  } catch (err) {
+    return res.status(401).json({
+      error: "Invalid or expired JWT token",
+    });
   }
 
   try {
