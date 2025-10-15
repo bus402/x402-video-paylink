@@ -1,0 +1,17 @@
+{
+  "name": "x402-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "X402 Video Processing Monorepo",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm -r dev",
+    "clean": "pnpm -r clean",
+    "test": "pnpm -r test"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}
