@@ -1,5 +1,5 @@
 {
-  "name": "@x402-video/payment-receipt",
+  "name": "@x402-video-paylink/payment-receipt",
   "version": "1.0.0",
   "private": true,
   "description": "Payment Receipt types for x402 video streaming",

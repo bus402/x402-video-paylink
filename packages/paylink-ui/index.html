@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X402 Video Link Wrapper</title>
+  <style>
+    :root {
+      --background-color: #f9fafb;
+      --container-background-color: white;
+      --text-color: #111827;
+      --secondary-text-color: #4b5563;
+      --border-color: #e5e7eb;
+      --button-primary-color: #2563eb;
+      --button-primary-hover-color: #1d4ed8;
+      --button-success-color: #059669;
+      --button-success-hover-color: #047857;
+      --error-background: #fee;
+      --error-border: #fcc;
+      --error-text: #c00;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 32rem;
+      margin: 4rem auto;
+      padding: 2rem;
+      background-color: var(--container-background-color);
+      border-radius: 0.75rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: var(--secondary-text-color);
+      font-size: 0.875rem;
+    }
+
+    label {
+      display: block;
+      color: var(--text-color);
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      transition: border-color 150ms;
+      margin-bottom: 1rem;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--button-primary-color);
+    }
+
+    .button {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: background-color 150ms;
+      font-size: 1rem;
+    }
+
+    .button-primary {
+      background-color: var(--button-primary-color);
+      color: white;
+    }
+
+    .button-primary:hover:not(:disabled) {
+      background-color: var(--button-primary-hover-color);
+    }
+
+    .button-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .result {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background-color: var(--background-color);
+      border-radius: 0.5rem;
+    }
+
+    .result h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-color);
+      margin-bottom: 1rem;
+    }
+
+    .url-container {
+      margin-bottom: 1rem;
+    }
+
+    .url-container input {
+      width: 100%;
+      padding: 0.75rem;
+      background: white;
+      border: 1px solid var(--border-color);
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-family: monospace;
+      margin-bottom: 0.5rem;
+      word-break: break-all;
+    }
+
+    .button-secondary {
+      background-color: var(--background-color);
+      color: var(--text-color);
+      padding: 0.75rem 1.25rem;
+      white-space: nowrap;
+      width: 100%;
+      border: 1px solid var(--border-color);
+    }
+
+    .button-secondary:hover {
+      background-color: #f3f4f6;
+    }
+
+    .button-success {
+      background-color: var(--button-success-color);
+      color: white;
+      padding: 0.75rem 1.25rem;
+      white-space: nowrap;
+      width: 100%;
+    }
+
+    .button-success:hover {
+      background-color: var(--button-success-hover-color);
+    }
+
+    .open-link {
+      display: inline-block;
+      color: var(--button-primary-color);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: color 150ms;
+    }
+
+    .open-link:hover {
+      color: var(--button-primary-hover-color);
+    }
+
+    .error {
+      margin-top: 1rem;
+      padding: 1rem;
+      background-color: var(--error-background);
+      border: 1px solid var(--error-border);
+      border-radius: 0.5rem;
+      color: var(--error-text);
+      font-size: 0.875rem;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 class="title">X402 Video Link Wrapper</h1>
+      <p class="subtitle">Wrap your video stream with payment protection</p>
+    </div>
+
+    <form id="wrapForm">
+      <label for="videoUrl">Video Stream URL (HLS .m3u8)</label>
+      <input
+        type="text"
+        id="videoUrl"
+        placeholder="https://example.com/video.m3u8"
+        required
+      />
+
+      <button type="submit" class="button button-primary" id="wrapBtn">
+        Wrap URL
+      </button>
+    </form>
+
+    <div id="error" class="error hidden"></div>
+
+    <div id="result" class="result hidden">
+      <h2>Wrapped URL</h2>
+      <div class="url-container">
+        <input type="text" id="wrappedUrl" readonly />
+        <button class="button button-primary" id="copyBtn" onclick="copyToClipboard()">
+          Copy
+        </button>
+        <a id="openLink" href="#" target="_blank" class="open-link" style="display: block; margin-top: 0.75rem;">
+          Open wrapped video →
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('wrapForm');
+    const wrapBtn = document.getElementById('wrapBtn');
+    const errorDiv = document.getElementById('error');
+    const resultDiv = document.getElementById('result');
+    const wrappedUrlInput = document.getElementById('wrappedUrl');
+    const openLink = document.getElementById('openLink');
+    const videoUrlInput = document.getElementById('videoUrl');
+
+    // Reset state when input changes
+    videoUrlInput.addEventListener('input', () => {
+      hideResult();
+      hideError();
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const videoUrl = document.getElementById('videoUrl').value.trim();
+
+      if (!videoUrl) {
+        showError('Please enter a video URL');
+        return;
+      }
+
+      wrapBtn.disabled = true;
+      wrapBtn.textContent = 'Wrapping...';
+      hideError();
+      hideResult();
+
+      try {
+        const response = await fetch('/wrap', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ url: videoUrl }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to wrap URL');
+        }
+
+        const data = await response.json();
+        showResult(data.wrappedUrl);
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        wrapBtn.disabled = false;
+        wrapBtn.textContent = 'Wrap URL';
+      }
+    });
+
+    function showError(message) {
+      errorDiv.textContent = message;
+      errorDiv.classList.remove('hidden');
+    }
+
+    function hideError() {
+      errorDiv.classList.add('hidden');
+    }
+
+    function showResult(url) {
+      wrappedUrlInput.value = url;
+      openLink.href = url;
+      resultDiv.classList.remove('hidden');
+
+      // Change Wrap URL button to secondary style
+      wrapBtn.classList.remove('button-primary');
+      wrapBtn.classList.add('button-secondary');
+    }
+
+    function hideResult() {
+      resultDiv.classList.add('hidden');
+
+      // Restore Wrap URL button to primary style
+      wrapBtn.classList.remove('button-secondary');
+      wrapBtn.classList.add('button-primary');
+    }
+
+    function copyToClipboard() {
+      wrappedUrlInput.select();
+      document.execCommand('copy');
+
+      const copyBtn = event.target;
+      const originalText = copyBtn.textContent;
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => {
+        copyBtn.textContent = originalText;
+      }, 2000);
+    }
+  </script>
+</body>
+</html>

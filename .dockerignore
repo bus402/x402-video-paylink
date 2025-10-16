@@ -1,0 +1,12 @@
+node_modules
+.git
+.next
+dist
+*.log
+.env
+.env.local
+apps/cdk/cdk.out
+apps/cdk/.cdk.staging
+**/.DS_Store
+**/cdk.out
+**/.cdk.staging

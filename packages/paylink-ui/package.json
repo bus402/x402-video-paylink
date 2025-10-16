@@ -1,0 +1,9 @@
+{
+  "name": "@x402-video-paylink/paylink-ui",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HTML UI for creating payment links for video URLs",
+  "files": [
+    "index.html"
+  ]
+}

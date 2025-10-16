@@ -1,5 +1,5 @@
 {
-  "name": "@x402-video/cdk",
+  "name": "@x402-video-paylink/cdk",
   "version": "0.1.0",
   "private": true,
   "bin": {
@@ -15,14 +15,16 @@
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/node": "22.7.9",
+    "aws-cdk": "2.1030.0",
+    "esbuild": "^0.25.11",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
-    "aws-cdk": "2.1030.0",
     "ts-node": "^10.9.2",
     "typescript": "~5.6.3"
   },
   "dependencies": {
     "aws-cdk-lib": "2.215.0",
-    "constructs": "^10.0.0"
+    "constructs": "^10.0.0",
+    "dotenv": "^17.2.3"
   }
 }
