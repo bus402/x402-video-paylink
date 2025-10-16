@@ -4,42 +4,38 @@ import jwt from "jsonwebtoken";
 import { config, isUpstreamAllowed, detectStreamKind } from "./config";
 import type { Wrapped, WrapRequest, WrapResponse } from "./types";
 import { fetchUpstream, getManifestRewriter, getContentType } from "./utils";
-import { createJWTPaymentMiddleware } from "./middleware/jwt-payment.js";
+import { createJWTExactMiddleware } from "./middleware/jwt-exact.js";
 
 export const app: Application = express();
 const wrapped = new Map<string, Wrapped>();
 
-// Create JWT + x402 payment middleware for /stream routes
-const streamPaymentMiddleware = createJWTPaymentMiddleware({
+// Create JWT + x402 exact middleware for /stream routes
+const streamPaymentMiddleware = createJWTExactMiddleware({
   merchantAddress: config.merchantAddress,
   routes: {
     "/stream/*": {
       price: config.streamPriceUSDC,
       network: config.network,
-      config: {
-        customPaywallHtml: `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Redirecting to Video Paywall...</title>
-</head>
-<body>
-  <p>Redirecting to video paywall...</p>
-  <script>
-    // Redirect to Next.js site video paywall with stream URL
-    const streamUrl = window.location.pathname;
-    const siteUrl = 'http://localhost:3001/video?stream=' + encodeURIComponent(streamUrl);
-    window.location.href = siteUrl;
-  </script>
-</body>
-</html>`,
-      },
     },
   },
 });
 
 app.use(express.json());
+
+// CORS middleware
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-PAYMENT, Authorization");
+  res.setHeader("Access-Control-Expose-Headers", "X-PAYMENT-RESPONSE, X-Receipt-Token");
+
+  if (req.method === "OPTIONS") {
+    res.sendStatus(200);
+    return;
+  }
+  next();
+});
+
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
@@ -154,12 +150,10 @@ app.get("/stream/:id.:ext", streamPaymentMiddleware, async (req, res) => {
       res.setHeader("Content-Type", contentType);
       res.setHeader("Access-Control-Allow-Origin", "*");
 
-      if (upstreamRes.headers.get("cache-control")) {
-        res.setHeader(
-          "Cache-Control",
-          upstreamRes.headers.get("cache-control")!
-        );
-      }
+      // Prevent caching of manifest to ensure fresh JWT is used
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
 
       res.send(rewritten);
       console.log(

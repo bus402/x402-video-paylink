@@ -11,6 +11,8 @@ export interface PaymentReceipt {
   req: string;
   /** Issued at (Unix timestamp in seconds) */
   iat: number;
+  /** Scope - array of path patterns this JWT is valid for */
+  scope: string[];
 }
 
 /**
