@@ -11,6 +11,7 @@ COPY apps/paylink-server ./apps/paylink-server
 COPY packages/paywall ./packages/paywall
 COPY packages/payment-receipt ./packages/payment-receipt
 COPY packages/paylink-ui ./packages/paylink-ui
+COPY packages/deferred ./packages/deferred
 
 # Install pnpm
 RUN npm install -g pnpm
@@ -19,6 +20,7 @@ RUN npm install -g pnpm
 RUN pnpm install --frozen-lockfile
 
 # Build packages
+RUN cd packages/deferred && pnpm build
 RUN cd packages/payment-receipt && pnpm build
 RUN cd packages/paywall && pnpm build:paywall
 RUN cd apps/paylink-server && pnpm build
@@ -40,12 +42,14 @@ COPY apps/paylink-server/package.json ./apps/paylink-server/
 COPY packages/paywall/package.json ./packages/paywall/
 COPY packages/payment-receipt/package.json ./packages/payment-receipt/
 COPY packages/paylink-ui/package.json ./packages/paylink-ui/
+COPY packages/deferred/package.json ./packages/deferred/
 
 # Install production dependencies only
 RUN pnpm install --frozen-lockfile --prod
 
 # Copy built files
 COPY --from=builder /app/apps/paylink-server/dist ./apps/paylink-server/dist
+COPY --from=builder /app/packages/deferred/dist ./packages/deferred/dist
 COPY --from=builder /app/packages/payment-receipt/dist ./packages/payment-receipt/dist
 COPY --from=builder /app/packages/paywall/gen ./packages/paywall/gen
 COPY --from=builder /app/packages/paylink-ui/index.html ./packages/paylink-ui/index.html

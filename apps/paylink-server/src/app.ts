@@ -1,20 +1,38 @@
 import express, { type Application } from "express";
 import { createId } from "@paralleldrive/cuid2";
-import jwt from "jsonwebtoken";
 import path from "path";
-import { config, isUpstreamAllowed, detectStreamKind } from "./config";
-import type { Wrapped, WrapRequest, WrapResponse } from "./types";
-import { fetchUpstream, getManifestRewriter, getContentType } from "./utils";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+import { config, isUpstreamAllowed, detectStreamKind } from "./config.js";
+import type { Wrapped, WrapRequest, WrapResponse } from "./types.js";
+import { fetchUpstream, getManifestRewriter, getContentType } from "./utils.js";
 import { createJWTExactMiddleware } from "./middleware/jwt-exact.js";
+import { createDeferredPaymentMiddleware } from "./middleware/deferred-payment.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export const app: Application = express();
 const wrapped = new Map<string, Wrapped>();
 
-// Create JWT + x402 exact middleware for /stream routes
-const streamPaymentMiddleware = createJWTExactMiddleware({
+// Manifest (/stream/{id}.{ext}) uses exact scheme (one-time payment, returns JWT)
+// Matches: /stream/abc.m3u8, /stream/xyz.mpd, /stream/foo.mp4
+const exactPaymentMiddleware = createJWTExactMiddleware({
   merchantAddress: config.merchantAddress,
   routes: {
-    "/stream/*": {
+    "/stream/*.*": {
+      price: config.streamPriceUSDC,
+      network: config.network,
+    },
+  },
+});
+
+// Segments (/stream/{id}/{...}) use deferred scheme (voucher aggregation)
+// Matches: /stream/abc/segment0.ts, /stream/abc/path/to/file.m3u8
+const deferredPaymentMiddleware = createDeferredPaymentMiddleware({
+  merchantAddress: config.merchantAddress,
+  routes: {
+    "/stream/**/*": {
       price: config.streamPriceUSDC,
       network: config.network,
     },
@@ -33,7 +51,7 @@ app.use((req, res, next) => {
   );
   res.setHeader(
     "Access-Control-Expose-Headers",
-    "X-PAYMENT-RESPONSE, X-Receipt-Token"
+    "X-PAYMENT-RESPONSE"
   );
 
   if (req.method === "OPTIONS") {
@@ -123,7 +141,7 @@ app.post("/wrap", (req, res) => {
 });
 
 // GET /stream/:id.:ext - Proxy main file (manifest or progressive stream)
-app.get("/stream/:id.:ext", streamPaymentMiddleware, async (req, res) => {
+app.get("/stream/:id.:ext", exactPaymentMiddleware, async (req, res) => {
   const { id, ext } = req.params;
   const stream = wrapped.get(id);
   if (!stream) {
@@ -148,14 +166,14 @@ app.get("/stream/:id.:ext", streamPaymentMiddleware, async (req, res) => {
   }
 
   try {
-    // Fetch from origin
-    const upstreamRes = await fetchUpstream(
-      stream.originUrl,
-      req.headers as Record<string, string>
-    );
-
     // For HLS/DASH manifests, we need to rewrite URLs
     if (stream.kind === "hls" || stream.kind === "dash") {
+      // Fetch from origin (no range limiting for manifests)
+      const upstreamRes = await fetchUpstream(
+        stream.originUrl,
+        req.headers as Record<string, string>
+      );
+
       if (!upstreamRes.ok) {
         return res.status(upstreamRes.status).json({ error: "Upstream error" });
       }
@@ -181,8 +199,54 @@ app.get("/stream/:id.:ext", streamPaymentMiddleware, async (req, res) => {
       return;
     }
 
-    // Progressive stream - pipe through
+    // Progressive stream - pipe through with range limiting
     {
+      // Limit range requests to prevent excessive buffering (~10 seconds of video)
+      // Assuming ~5 Mbps video = ~625 KB/s, 10 seconds = ~6.25 MB
+      // Set limit to 10 MB to be safe
+      const MAX_RANGE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+      // Parse and potentially limit the range request
+      const rangeHeader = req.headers.range;
+      let limitedRangeHeader: string | undefined = rangeHeader;
+
+      if (rangeHeader) {
+        const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
+        if (match) {
+          const start = parseInt(match[1], 10);
+          const requestedEnd = match[2] ? parseInt(match[2], 10) : undefined;
+
+          // If requestedEnd is specified and exceeds limit, constrain it
+          if (requestedEnd !== undefined) {
+            const maxEnd = start + MAX_RANGE_BYTES - 1;
+            if (requestedEnd > maxEnd) {
+              limitedRangeHeader = `bytes=${start}-${maxEnd}`;
+              console.log(
+                `[RANGE-LIMIT] ${id}: requested ${start}-${requestedEnd}, limited to ${start}-${maxEnd} (${
+                  maxEnd - start + 1
+                } bytes, max ${MAX_RANGE_BYTES})`
+              );
+            }
+          } else {
+            // If no end specified (e.g., "bytes=0-"), limit it
+            const maxEnd = start + MAX_RANGE_BYTES - 1;
+            limitedRangeHeader = `bytes=${start}-${maxEnd}`;
+            console.log(
+              `[RANGE-LIMIT] ${id}: requested ${start}- (open-ended), limited to ${start}-${maxEnd}`
+            );
+          }
+        }
+      }
+
+      // Prepare headers with limited range
+      const upstreamHeaders = { ...req.headers } as Record<string, string>;
+      if (limitedRangeHeader) {
+        upstreamHeaders.range = limitedRangeHeader;
+      }
+
+      // Fetch from origin with potentially limited range
+      const upstreamRes = await fetchUpstream(stream.originUrl, upstreamHeaders);
+
       const contentType =
         upstreamRes.headers.get("content-type") ||
         getContentType(stream.kind, stream.originalExt);
@@ -237,30 +301,13 @@ app.get("/stream/:id.:ext", streamPaymentMiddleware, async (req, res) => {
 });
 
 // GET /stream/:id/* - Proxy segments/keys for HLS/DASH
-app.get("/stream/:id/*", async (req, res) => {
+app.get("/stream/:id/*", deferredPaymentMiddleware, async (req, res) => {
   const { id } = req.params;
   const segmentPath = (req.params as any)[0] as string; // Everything after /stream/:id/
 
   const stream = wrapped.get(id);
   if (!stream) {
     return res.status(404).json({ error: "Stream not found" });
-  }
-
-  // Check JWT for segments
-  const authHeader = req.header("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return res.status(401).json({
-      error: "Authorization header with Bearer token required for segments",
-    });
-  }
-
-  const token = authHeader.substring(7);
-  try {
-    jwt.verify(token, config.jwtSecret);
-  } catch (err) {
-    return res.status(401).json({
-      error: "Invalid or expired JWT token",
-    });
   }
 
   try {
@@ -279,11 +326,43 @@ app.get("/stream/:id/*", async (req, res) => {
             return new URL(segmentPath, originBase).href;
           })();
 
-    // Fetch segment from origin
-    const upstreamRes = await fetchUpstream(
-      segmentUrl,
-      req.headers as Record<string, string>
-    );
+    // Limit range requests for segments to prevent excessive buffering
+    const MAX_RANGE_BYTES = 10 * 1024 * 1024; // 10 MB
+    const rangeHeader = req.headers.range;
+    let limitedRangeHeader: string | undefined = rangeHeader;
+
+    if (rangeHeader) {
+      const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
+      if (match) {
+        const start = parseInt(match[1], 10);
+        const requestedEnd = match[2] ? parseInt(match[2], 10) : undefined;
+
+        if (requestedEnd !== undefined) {
+          const maxEnd = start + MAX_RANGE_BYTES - 1;
+          if (requestedEnd > maxEnd) {
+            limitedRangeHeader = `bytes=${start}-${maxEnd}`;
+            console.log(
+              `[SEGMENT-RANGE-LIMIT] ${id}/${segmentPath.substring(0, 30)}: requested ${start}-${requestedEnd}, limited to ${start}-${maxEnd}`
+            );
+          }
+        } else {
+          const maxEnd = start + MAX_RANGE_BYTES - 1;
+          limitedRangeHeader = `bytes=${start}-${maxEnd}`;
+          console.log(
+            `[SEGMENT-RANGE-LIMIT] ${id}/${segmentPath.substring(0, 30)}: requested ${start}- (open-ended), limited to ${start}-${maxEnd}`
+          );
+        }
+      }
+    }
+
+    // Prepare headers with limited range
+    const upstreamHeaders = { ...req.headers } as Record<string, string>;
+    if (limitedRangeHeader) {
+      upstreamHeaders.range = limitedRangeHeader;
+    }
+
+    // Fetch segment from origin with potentially limited range
+    const upstreamRes = await fetchUpstream(segmentUrl, upstreamHeaders);
 
     // Stream the segment
     res.status(upstreamRes.status);

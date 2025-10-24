@@ -3,11 +3,23 @@ export const config = {
   baseUrl: process.env.BASE_URL || "http://localhost:3000",
   merchantAddress:
     process.env.MERCHANT_ADDRESS ||
-    "0x0000000000000000000000000000000000000000", // TODO: Set merchant address
+    "0x0000000000000000000000000000000000000000",
   network: (process.env.X402_NETWORK || "base-sepolia") as "base-sepolia",
   streamPriceUSDC: process.env.STREAM_PRICE_USDC || "0.01",
+
+  // Legacy JWT settings (still used by wrap API)
   jwtSecret: process.env.JWT_SECRET || "your-secret-key-change-in-production",
-  jwtTTL: parseInt(process.env.JWT_TTL_SECONDS || "900", 10), // 15 minutes default
+  jwtTTL: parseInt(process.env.JWT_TTL_SECONDS || "900", 10),
+
+  // Deferred payment scheme settings (EIP-712 signature verification only)
+  // Asset address (USDC on base-sepolia)
+  assetAddress:
+    process.env.ASSET_ADDRESS ||
+    "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  // Step amount per minute in atomic units (0.01 USDC = 10000 units with 6 decimals)
+  stepAmount: process.env.STEP_AMOUNT || "10000",
+  // Voucher renewal interval in seconds
+  voucherTimeWindow: parseInt(process.env.VOUCHER_TIME_WINDOW || "60", 10),
 };
 
 // Private IP ranges to block (SSRF protection)

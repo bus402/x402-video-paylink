@@ -282,7 +282,7 @@ export function createJWTExactMiddleware(options: JWTPaymentOptions) {
     };
 
     // 7. Proceed to next middleware/route handler
-    await next();
+    next();
 
     // 8. If response is error, don't settle
     if (res.statusCode >= 400) {

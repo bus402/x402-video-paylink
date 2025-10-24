@@ -1,6 +1,6 @@
 import serverlessExpress from "@codegenie/serverless-express";
 import type { Handler } from "aws-lambda";
-import { app } from "./app";
+import { app } from "./app.js";
 
 let serverlessExpressInstance: Handler;
 

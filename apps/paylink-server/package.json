@@ -1,6 +1,7 @@
 {
   "name": "@x402-video-paylink/paylink-server",
   "version": "1.0.0",
+  "type": "module",
   "private": true,
   "description": "X402 Video Paylink Server",
   "main": "dist/app.js",
@@ -16,6 +17,7 @@
     "@codegenie/serverless-express": "^4.17.0",
     "@coinbase/x402": "^0.6.6",
     "@paralleldrive/cuid2": "^2.2.2",
+    "@x402-video-paylink/deferred": "workspace:*",
     "@x402-video-paylink/payment-receipt": "workspace:*",
     "@x402-video-paylink/paywall": "workspace:*",
     "dotenv": "^17.2.3",
