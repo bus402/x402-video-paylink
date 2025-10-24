@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "X402 Video Paywall",
+  "exports": {
+    "./gen/template": "./gen/template.js"
+  },
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
@@ -13,6 +16,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.11",
+    "@x402-video-paylink/deferred": "workspace:*",
     "buffer": "^6.0.3",
     "hls.js": "^1.5.15",
     "next": "^14.1.0",

@@ -69,7 +69,11 @@ function App() {
   }
 
   if (status === "playing" && jwt && window.x402?.currentUrl) {
-    return <VideoPlayer streamUrl={window.x402.currentUrl} jwt={jwt} />;
+    return (
+      <Providers>
+        <VideoPlayer streamUrl={window.x402.currentUrl} jwt={jwt} />
+      </Providers>
+    );
   }
 
   return null;
