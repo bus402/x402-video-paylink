@@ -46,6 +46,9 @@ export class CdkStack extends cdk.Stack {
         STREAM_PRICE_USDC: process.env.STREAM_PRICE_USDC!,
         X402_NETWORK: process.env.X402_NETWORK!,
         BASE_URL: process.env.BASE_URL!,
+        ASSET_ADDRESS: process.env.ASSET_ADDRESS || "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        STEP_AMOUNT: process.env.STEP_AMOUNT || "10000",
+        VOUCHER_TIME_WINDOW: process.env.VOUCHER_TIME_WINDOW || "20",
       },
     });
 
